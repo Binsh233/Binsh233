@@ -1,20 +1,28 @@
 # Fluorescence denoising for cell segmentation
 
-**BM3D + Anscombe VST · Python · EECS 556 team project · University of Michigan, 2026**
+**BM3D · VST-TV · VST-Wiener · Python · EECS 556 team project · University of Michigan, 2026**
 
-A classical image restoration baseline for fluorescence microscopy, evaluated through downstream cell segmentation. Our team compared classical and learned denoisers under simulated Poisson noise while holding the Cellpose segmentation model fixed. I implemented the BM3D plus variance stabilizing transform (VST) module.
+Classical image restoration baselines for fluorescence microscopy, evaluated through downstream cell segmentation. Our team compared classical and learned denoisers under simulated Poisson noise while holding the Cellpose segmentation model fixed. I implemented and evaluated the BM3D, VST-TV, and VST-Wiener baselines.
 
-[Implementation](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical/denoise_bm3d_vst.py) · [Team benchmark figure](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/figures/comparison/ap_comparison.png) · [Repository](https://github.com/npkamath/556DenoisingFluorescence)
+[Classical implementations](https://github.com/npkamath/556DenoisingFluorescence/tree/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical) · [Team benchmark figure](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/figures/comparison/ap_comparison.png) · [Repository](https://github.com/npkamath/556DenoisingFluorescence)
 
 ## My contribution
 
-The module uses the existing `bm3d` package for Gaussian denoising. I implemented the workflow that adapts it to the project's Poisson inputs:
+I implemented three classical baselines using an Anscombe variance stabilizing transform (VST), and evaluated them on the same 68-image set through the shared frozen Cellpose and AP evaluation pipeline:
+
+| Baseline | Implementation |
+| --- | --- |
+| BM3D | [Anscombe VST plus BM3D](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical/denoise_bm3d_vst.py) |
+| Poisson-TV | [TV denoising in the VST domain](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical/denoise_poisson_tv.py) |
+| Wiener | [Wiener filtering in the VST domain](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical/denoise_wiener_vst.py) |
+
+For the BM3D module, I adapted the existing `bm3d` package to the project's Poisson inputs:
 
 - **Noise model:** recover simulated Poisson counts from each image's recorded scale, apply the Anscombe VST, and map the denoised output back with an approximate inverse.
 - **Channel processing:** denoise the red nucleus and green cytoplasm channels, normalize intensities and noise sigma consistently, and guard against nearly constant inputs.
 - **Batch processing:** load the per-image scale table, process `.npy` inputs, and save float32 outputs with clipping and finite value handling.
 
-I also contributed to the team report and README. The [March 25 submission](https://github.com/npkamath/556DenoisingFluorescence/commit/f4e8d8cacf686e8a49baed1f9fa6310e4016eaea) records the original module; a later team reorganization moved it into `src/denoisers/classical/`.
+I also contributed to the proposal's quantitative performance predictions, evaluation protocol, reproducibility plan, and extension discussion, followed by project reporting and README review. The [March 25 submission](https://github.com/npkamath/556DenoisingFluorescence/commit/f4e8d8cacf686e8a49baed1f9fa6310e4016eaea) records the BM3D module; the [April 16 submission](https://github.com/npkamath/556DenoisingFluorescence/commit/825285d9c2058a00381bd7d28e83c97131b0541a) adds the TV and Wiener scripts. A later team reorganization moved the files into `src/denoisers/classical/`.
 
 ## Reported team results
 
@@ -24,13 +32,15 @@ The team's [archived comparison figure](https://github.com/npkamath/556Denoising
 | --- | ---: |
 | Noisy images | 0.3171 |
 | **BM3D denoised images** | **0.5559** |
+| Poisson-TV denoised images | 0.5069 |
+| Wiener denoised images | 0.4735 |
 | Clean reference images | 0.7343 |
 
-In this reported comparison, BM3D recovered segmentation performance above the noisy baseline, with a remaining gap to the clean reference. These values are transcribed from the public team figure at revision `e6b237d`. They have not been reproduced for this portfolio.
+In this reported comparison, all three classical baselines achieved higher mean segmentation AP than the noisy input. BM3D had the highest mean AP among these three, with a remaining gap to the clean reference. These values are transcribed from the public team figure at revision `e6b237d`. They have not been reproduced for this portfolio.
 
 ## Evaluation design
 
-> **Poisson noisy images** → **BM3D + Anscombe VST** → **Frozen Cellpose cyto2** → **Segmentation AP@0.5**
+> **Poisson noisy images** → **VST with BM3D / TV / Wiener** → **Frozen Cellpose cyto2** → **Segmentation AP@0.5**
 
 The evaluation uses 68 public Cellpose test image and mask pairs. The same pretrained `cyto2` model processes noisy, denoised, and clean inputs with `channels=[2, 1]`. The metric is the mean of per-image `TP / (TP + FP + FN)` scores at an intersection over union (IoU) threshold of 0.5.
 
@@ -38,11 +48,13 @@ This design measures the usefulness of restoration for segmentation. Its scope i
 
 ## Team and development context
 
-The repository is owned by `npkamath`. Data preparation, segmentation, evaluation, and the other denoisers are shared team work. My contribution is the BM3D/VST module and project reporting, including a [README update](https://github.com/npkamath/556DenoisingFluorescence/commit/a07c80478dcf5f3cd23c0fe5e217efb7d34e1243). Development included both my own coding and AI assistance.
+The repository is owned by `npkamath`. Data preparation, segmentation, evaluation, and the remaining denoisers are shared team work. My implementation contribution covers the three classical baselines above, together with evaluation and project writing, including a [README update](https://github.com/npkamath/556DenoisingFluorescence/commit/a07c80478dcf5f3cd23c0fe5e217efb7d34e1243). Development included both my own coding and AI assistance.
 
 ## Reproduction
 
 The run guide follows the [April 22 reference revision](https://github.com/npkamath/556DenoisingFluorescence/tree/e6b237dd2515c976ecf692fed333d9970c90b9f1). Commands have been checked against source, but have not been executed for this portfolio. Most upstream dependencies are unpinned.
+
+The worked commands below cover the BM3D route. The TV and Wiener implementations are linked above.
 
 <details>
 <summary>Environment, data, commands, and output checks</summary>
