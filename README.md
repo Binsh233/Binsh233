@@ -8,8 +8,8 @@ I develop and evaluate imaging workflows in MATLAB and Python. I am a Research A
 
 ### Fluorescence denoising for cell segmentation
 
-**Python · BM3D · Anscombe VST · EECS 556 team project**
+**Python · BM3D · VST-TV · VST-Wiener · EECS 556 team project**
 
-Implemented the BM3D plus variance stabilizing transform component of a team benchmark on 68 fluorescence images. Denoising methods were compared through instance segmentation with a frozen Cellpose model. I also contributed to the team report and README.
+Implemented and evaluated three classical denoising baselines, BM3D, VST-TV, and VST-Wiener, on 68 fluorescence images using a shared frozen Cellpose segmentation pipeline. I also contributed to the proposal's evaluation protocol and reproducibility plan, the team report, and the README.
 
-[Project and contribution](projects/eecs556.md) · [Implementation](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical/denoise_bm3d_vst.py) · [Team repository](https://github.com/npkamath/556DenoisingFluorescence)
+[Project and contribution](projects/eecs556.md) · [Classical implementations](https://github.com/npkamath/556DenoisingFluorescence/tree/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical) · [Team repository](https://github.com/npkamath/556DenoisingFluorescence)
