@@ -28,6 +28,10 @@ I also contributed to the proposal's quantitative performance predictions, evalu
 
 The team's [archived comparison figure](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/figures/comparison/ap_comparison.png) reports the following mean segmentation scores:
 
+![Archived team benchmark comparing mean segmentation AP at IoU 0.5 across denoising methods.](https://raw.githubusercontent.com/npkamath/556DenoisingFluorescence/e6b237dd2515c976ecf692fed333d9970c90b9f1/figures/comparison/ap_comparison.png)
+
+*Team benchmark, April 2026. The full figure includes teammates' methods for context. Italic timing labels are archival annotations and have not been validated here.*
+
 | Input to the frozen segmenter | Mean AP@0.5 |
 | --- | ---: |
 | Noisy images | 0.3171 |
@@ -37,6 +41,22 @@ The team's [archived comparison figure](https://github.com/npkamath/556Denoising
 | Clean reference images | 0.7343 |
 
 In this reported comparison, all three classical baselines achieved higher mean segmentation AP than the noisy input. BM3D had the highest mean AP among these three, with a remaining gap to the clean reference. These values are transcribed from the public team figure at revision `e6b237d`. They have not been reproduced for this portfolio.
+
+## Case analysis
+
+The team's presentation includes the following selected examples. Columns show the reference image, Poisson-corrupted input, BM3D restoration, and the team's learned PnP-HQS restoration. The AP labels are per-case annotations from the original figure, separate from the 68-image means above.
+
+![Three team-selected cases showing reference, noisy, BM3D and PnP-HQS images. Top-row AP is 0.95 and 0.96, middle-row AP is 0.12 and 0.00, and bottom-row AP is 0.61 and 0.00 for BM3D and PnP-HQS respectively.](../assets/eecs556/team_case_examples.png)
+
+*Source: EECS 556 team presentation, April 2026, by Ninad Kamath, Bingxu Lin, and Ruoyu Wu. This is the comparison region from slide 12, shown on its original light background. My implementation contribution is the BM3D baseline; the learned PnP-HQS extension is team work.*
+
+| Selected case | Displayed BM3D AP | Displayed PnP-HQS AP | Interpretation |
+| --- | ---: | ---: | --- |
+| Top row: high-scoring example | 0.95 | 0.96 | Both methods achieve high segmentation scores on this selected example; their small difference does not establish an overall ranking. |
+| Middle row: difficult example | 0.12 | 0.00 | Visible noise suppression still leaves poor segmentation. This case shows why restoration should be evaluated through the downstream task. |
+| Bottom row: different method behavior | 0.61 | 0.00 | Recognizable image structure remains in both outputs, yet the displayed segmentation scores differ sharply. Image appearance alone does not explain the difference. |
+
+These selected cases illustrate variation across images. They do not establish a failure mechanism or a general claim about tissue types. The original sample identifiers, noise scales, and masks have not been independently checked for this portfolio, so the figure remains an attributed team example rather than a new reproduction.
 
 ## Evaluation design
 
@@ -54,7 +74,7 @@ The repository is owned by `npkamath`. Data preparation, segmentation, evaluatio
 
 The run guide follows the [April 22 reference revision](https://github.com/npkamath/556DenoisingFluorescence/tree/e6b237dd2515c976ecf692fed333d9970c90b9f1). Commands have been checked against source, but have not been executed for this portfolio. Most upstream dependencies are unpinned.
 
-The worked commands below cover the BM3D route. The TV and Wiener implementations are linked above.
+The worked commands cover all three classical baselines with the defaults in the pinned source: BM3D `sigma_vst=1.0`, VST-TV `weight=0.10` with `n_iter=200`, and VST-Wiener `mysize=5`. These are source-default run instructions; the original figure remains an archival result.
 
 <details>
 <summary>Environment, data, commands, and output checks</summary>
@@ -85,16 +105,23 @@ data/raw/test/
   ...
 ```
 
-This is an example of the expected naming pattern. Check that all 68 image and mask pairs are present. The optional `cyto2` training dataset is not required for this BM3D evaluation route.
+This is an example of the expected naming pattern. Check that all 68 image and mask pairs are present. The optional `cyto2` training dataset is not required for these classical evaluation routes.
 
 The provider's download page currently asks for an institutional email and acceptance of its terms. The dataset is obtained separately from the provider.
 
-### 3. Prepare Poisson noise and run BM3D
+### 3. Prepare Poisson noise and run the denoisers
 
 The data preparation step uses seed 42 and saves each image's noise scale to `data/noise_params.csv`. Run it once in the fresh checkout, then use those same generated inputs for every compared method.
 
 ```sh
 python src/data_prep/data_prep.py --noise_mode poisson --seed 42
+```
+
+Run each baseline on that same noisy input directory and scale table. The TV script applies Chambolle TV denoising after the VST; its historical `poisson_tv` filename does not mean it directly solves a Poisson likelihood objective.
+
+**BM3D**
+
+```sh
 python src/denoisers/classical/denoise_bm3d_vst.py \
   --noisy_dir data/noisy/poisson \
   --pscale_csv data/noise_params.csv \
@@ -102,16 +129,42 @@ python src/denoisers/classical/denoise_bm3d_vst.py \
   --sigma_vst 1.0
 ```
 
+**VST-TV**
+
+```sh
+python src/denoisers/classical/denoise_poisson_tv.py \
+  --noisy_dir data/noisy/poisson \
+  --pscale_csv data/noise_params.csv \
+  --out_dir results/denoised/poisson_tv \
+  --weight 0.10 --n_iter 200
+```
+
+`weight` controls smoothing in the normalized VST domain, and `n_iter` is the maximum number of Chambolle iterations. The script uses `skimage.restoration.denoise_tv_chambolle`, denoises red and green independently, and maps back through its safe approximate inverse Anscombe transform.
+
+**VST-Wiener**
+
+```sh
+python src/denoisers/classical/denoise_wiener_vst.py \
+  --noisy_dir data/noisy/poisson \
+  --pscale_csv data/noise_params.csv \
+  --out_dir results/denoised/wiener \
+  --mysize 5
+```
+
+`mysize=5` selects a 5 by 5 neighborhood for `scipy.signal.wiener` in the VST domain. The script processes red and green independently and uses its safe approximate inverse Anscombe transform. Both TV and Wiener save clipped float32 arrays and handle non-finite output values.
+
 ### 4. Segment and evaluate
 
 ```sh
-python src/pipeline/segment.py \
-  --input_dir results/denoised/bm3d \
-  --output_dir results/pred_masks/bm3d --no_gpu
-python src/pipeline/evaluate.py \
-  --gt_dir data/masks \
-  --pred_dir results/pred_masks/bm3d \
-  --out_dir results/ap_scores --method_name bm3d
+for method in bm3d poisson_tv wiener; do
+  python src/pipeline/segment.py \
+    --input_dir "results/denoised/$method" \
+    --output_dir "results/pred_masks/$method" --no_gpu
+  python src/pipeline/evaluate.py \
+    --gt_dir data/masks \
+    --pred_dir "results/pred_masks/$method" \
+    --out_dir results/ap_scores --method_name "$method"
+done
 ```
 
 For the noisy and clean references, run the same segmentation and evaluation steps on the prepared inputs:
@@ -138,15 +191,17 @@ Cellpose uses the project's green cytoplasm and red nucleus mapping, `channels=[
 
 These are the files the referenced scripts are designed to write; they are not bundled experiment results.
 
+In the paths below, `<method>` is `bm3d`, `poisson_tv`, or `wiener`, matching the output directories and evaluation labels above.
+
 | Output | Contents |
 | --- | --- |
 | `data/noise_params.csv` | Image identifiers and Poisson noise scales |
-| `results/denoised/bm3d/*.npy` | Denoised `(H, W, 3)` float32 arrays, clipped to `[0, 1]` |
-| `results/pred_masks/bm3d/*.npy` | `(H, W)` integer instance masks |
-| `results/ap_scores/bm3d.csv` | Per-image scores across IoU thresholds |
-| `results/ap_scores/bm3d_summary.csv` | Mean scores and matching counts at each threshold |
+| `results/denoised/<method>/*.npy` | Denoised `(H, W, 3)` float32 arrays, clipped to `[0, 1]` |
+| `results/pred_masks/<method>/*.npy` | `(H, W)` integer instance masks |
+| `results/ap_scores/<method>.csv` | Per-image scores across IoU thresholds |
+| `results/ap_scores/<method>_summary.csv` | Mean scores and matching counts at each threshold |
 
-Before treating an evaluation as the full 68-image benchmark, verify that the noisy images, denoised images, predicted masks, and ground-truth masks have the same 68 `.npy` filenames. The evaluator scores matching filenames and can return a result for an incomplete subset. Also check output dimensions and finite values, retain the run log, and preserve the package versions, model weights, seed, and noise scale CSV.
+Before treating an evaluation as the full 68-image benchmark, verify that the noisy images, each method's denoised images and predicted masks, and the ground-truth masks have the same 68 `.npy` filenames. Each method's per-image CSV should contain those same 68 unique image identifiers. The evaluator scores matching filenames and can return a result for an incomplete subset. Also check output dimensions and finite values, retain the run log, and preserve the package versions, model weights, seed, and noise scale CSV.
 
 </details>
 
@@ -155,6 +210,8 @@ Before treating an evaluation as the full 68-image benchmark, verify that the no
 
 - [Project README at the referenced revision](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/README.md)
 - [Dependency requirements](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/requirements.txt)
+- [VST-TV arguments and implementation](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical/denoise_poisson_tv.py)
+- [VST-Wiener arguments and implementation](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical/denoise_wiener_vst.py)
 - [Data preparation](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/data_prep/data_prep.py)
 - [Frozen Cellpose segmentation](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/pipeline/segment.py)
 - [Evaluation and CSV outputs](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/pipeline/evaluate.py)
