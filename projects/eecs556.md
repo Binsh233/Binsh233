@@ -4,7 +4,7 @@
 
 Classical image restoration baselines for fluorescence microscopy, evaluated through downstream cell segmentation. Our team compared classical and learned denoisers under simulated Poisson noise while holding the Cellpose segmentation model fixed. I implemented and evaluated the BM3D, VST-TV, and VST-Wiener baselines.
 
-[Classical implementations](https://github.com/npkamath/556DenoisingFluorescence/tree/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical) · [Team benchmark figure](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/figures/comparison/ap_comparison.png) · [Repository](https://github.com/npkamath/556DenoisingFluorescence)
+[Technical report (PDF, 2 pages)](../output/pdf/EECS556_technical_report.pdf) · [Classical implementations](https://github.com/npkamath/556DenoisingFluorescence/tree/e6b237dd2515c976ecf692fed333d9970c90b9f1/src/denoisers/classical) · [Team benchmark figure](https://github.com/npkamath/556DenoisingFluorescence/blob/e6b237dd2515c976ecf692fed333d9970c90b9f1/figures/comparison/ap_comparison.png) · [Repository](https://github.com/npkamath/556DenoisingFluorescence)
 
 ## My contribution
 
