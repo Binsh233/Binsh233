@@ -30,12 +30,7 @@ In this reported comparison, BM3D recovered segmentation performance above the n
 
 ## Evaluation design
 
-```mermaid
-graph LR
-    A["Poisson noisy images"] --> B["BM3D + Anscombe VST"]
-    B --> C["Frozen Cellpose cyto2"]
-    C --> D["Segmentation AP at IoU 0.5"]
-```
+> **Poisson noisy images** → **BM3D + Anscombe VST** → **Frozen Cellpose cyto2** → **Segmentation AP@0.5**
 
 The evaluation uses 68 public Cellpose test image and mask pairs. The same pretrained `cyto2` model processes noisy, denoised, and clean inputs with `channels=[2, 1]`. The metric is the mean of per-image `TP / (TP + FP + FN)` scores at an intersection over union (IoU) threshold of 0.5.
 
